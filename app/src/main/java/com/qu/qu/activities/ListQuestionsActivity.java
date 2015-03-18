@@ -42,7 +42,7 @@ import timber.log.Timber;
 
 public class ListQuestionsActivity extends ListActivity {
 
-    private static final int UPDATE_INTERVAL = 10;
+    private static final int UPDATE_INTERVAL = 30;
 
     ScheduledExecutorService scheduler;
 
