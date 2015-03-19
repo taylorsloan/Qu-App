@@ -1,20 +1,24 @@
 package com.qu.qu.net.models;
 
-import com.orm.SugarRecord;
+import io.realm.RealmObject;
+import io.realm.annotations.PrimaryKey;
 
 /**
  * Created by Taylor on 3/16/2015.
  */
-public class AskedQuestion extends SugarRecord<AskedQuestion> {
-    int pk;
-    String question;
-    int positiveCount;
-    int negativeCount;
+public class AskedQuestion extends RealmObject {
+
+    @PrimaryKey
+    private int pk;
+    private String question;
+    private int positiveCount;
+    private int negativeCount;
 
     public AskedQuestion() {
+        super();
     }
 
-    public AskedQuestion(int pk, int positiveCount, String question, int negativeCount) {
+    public AskedQuestion(int pk, String question, int positiveCount, int negativeCount) {
         this.pk = pk;
         this.positiveCount = positiveCount;
         this.question = question;

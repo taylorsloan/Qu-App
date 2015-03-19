@@ -4,7 +4,6 @@ import android.app.Activity;
 import android.app.ListActivity;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.MenuInflater;
@@ -16,9 +15,6 @@ import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.TextView;
 
-import com.nhaarman.listviewanimations.appearance.simple.AlphaInAnimationAdapter;
-import com.nhaarman.listviewanimations.itemmanipulation.DynamicListView;
-import com.nhaarman.listviewanimations.util.Insertable;
 import com.qu.qu.BaseApplication;
 import com.qu.qu.R;
 import com.qu.qu.net.models.AskedQuestion;
@@ -33,6 +29,9 @@ import java.util.concurrent.TimeUnit;
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import butterknife.OnClick;
+import io.realm.Realm;
+import io.realm.RealmQuery;
+import io.realm.RealmResults;
 import me.drakeet.materialdialog.MaterialDialog;
 import rx.Observable;
 import rx.Subscription;
@@ -52,14 +51,15 @@ public class ListQuestionsActivity extends ListActivity {
 
     ArrayList<AskedQuestion> askedQuestions = new ArrayList<>();
     QuestionAdapter questionAdapter;
+    Realm realm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list_questions);
         ButterKnife.inject(this);
+        realm = Realm.getInstance(this);
         loadQuestions();
-        setListAdapter(questionAdapter);
         registerForContextMenu(getListView());
     }
 
@@ -85,11 +85,14 @@ public class ListQuestionsActivity extends ListActivity {
 
     void loadQuestions() {
         questionAdapter = new QuestionAdapter(this, askedQuestions);
-        AlphaInAnimationAdapter animationAdapter = new AlphaInAnimationAdapter(questionAdapter);
-        animationAdapter.setAbsListView(getListView());
-        List<AskedQuestion> storedQuestions = AskedQuestion.find(AskedQuestion.class, null, null, null, " id DESC", null);
-        askedQuestions.addAll(storedQuestions);
-        questionAdapter.notifyDataSetChanged();
+        getListView().setAdapter(questionAdapter);
+        RealmQuery<AskedQuestion> query = realm.where(AskedQuestion.class);
+        RealmResults<AskedQuestion> results = query.findAll();
+        results.sort("pk", RealmResults.SORT_ORDER_DESCENDING);
+        for (AskedQuestion question : results) {
+            askedQuestions.add(question);
+            questionAdapter.notifyDataSetChanged();
+        }
     }
 
     void removeQuestion(int position) {
@@ -98,7 +101,9 @@ public class ListQuestionsActivity extends ListActivity {
             Timber.d("Removing Question: %s Position: %s", selectedQuestion.getQuestion()
                     , String.valueOf(position));
             askedQuestions.remove(position);
-            selectedQuestion.delete();
+            realm.beginTransaction();
+            selectedQuestion.removeFromRealm();
+            realm.commitTransaction();
             questionAdapter.notifyDataSetChanged();
         } catch (IndexOutOfBoundsException e) {
             Timber.e("Could not remove question at index %s", String.valueOf(position));
@@ -133,9 +138,10 @@ public class ListQuestionsActivity extends ListActivity {
                             Timber.d("Updating Question: %s P: %s N: %s", questionUpdate.getQuestion()
                                     , String.valueOf(questionUpdate.getPositiveCount()),
                                     String.valueOf(questionUpdate.getNegativeCount()));
+                            realm.beginTransaction();
                             askedQuestion.setPositiveCount(questionUpdate.getPositiveCount());
                             askedQuestion.setNegativeCount(questionUpdate.getNegativeCount());
-                            askedQuestion.save();
+                            realm.commitTransaction();
                         }
                         questionAdapter.notifyDataSetChanged();
                     });
@@ -159,6 +165,7 @@ public class ListQuestionsActivity extends ListActivity {
         if (createQuestionSubscription != null) {
             createQuestionSubscription.unsubscribe();
         }
+        realm.close();
 
     }
 
@@ -181,9 +188,11 @@ public class ListQuestionsActivity extends ListActivity {
                     createQuestionSubscription = request.subscribe(q -> {
                         Timber.d("Asked Question: %s", q.getQuestion());
                         AskedQuestion askedQuestion = new AskedQuestion(q);
-                        ((DynamicListView) getListView()).insert(0, askedQuestion);
+                        realm.beginTransaction();
+                        AskedQuestion saved = realm.copyToRealm(askedQuestion);
+                        askedQuestions.add(0, saved);
+                        realm.commitTransaction();
                         questionAdapter.notifyDataSetChanged();
-                        askedQuestion.save();
                     });
                     materialDialog.dismiss();
                 })
@@ -201,11 +210,12 @@ public class ListQuestionsActivity extends ListActivity {
         } else if (!questionText.endsWith("?")) {
             questionText = questionText + "?";
         }
+        questionText.trim();
         return questionText;
     }
 
 
-    class QuestionAdapter extends BaseAdapter implements Insertable<AskedQuestion> {
+    class QuestionAdapter extends BaseAdapter {
 
         List<AskedQuestion> questions;
         LayoutInflater inflater;
@@ -224,11 +234,6 @@ public class ListQuestionsActivity extends ListActivity {
         @Override
         public AskedQuestion getItem(int position) {
             return questions.get(position);
-        }
-
-        @Override
-        public void add(int i, @NonNull AskedQuestion askedQuestion) {
-            questions.add(i, askedQuestion);
         }
 
         @Override

@@ -11,7 +11,7 @@
         android:layout_gravity="left|top"
         android:layout_toLeftOf="@+id/textView"
         android:ems="10"
-        android:inputType="textCapSentences|textMultiLine"
+        android:inputType="textCapSentences"
         android:maxLength="254" />
 
     <TextView

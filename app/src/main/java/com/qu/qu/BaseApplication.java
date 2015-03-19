@@ -3,6 +3,7 @@ package com.qu.qu;
 import com.orm.SugarApp;
 import com.qu.qu.net.QuEndpointsService;
 import com.qu.qu.net.RetrofitService;
+import com.squareup.otto.Bus;
 
 import timber.log.Timber;
 
@@ -13,14 +14,20 @@ public class BaseApplication extends SugarApp {
 
     private static QuEndpointsService quEndpointsService;
 
+    private static Bus bus;
+
     public static QuEndpointsService getQuEndpointsService() {
         return quEndpointsService;
+    }
+
+    public static Bus getBus() {
+        return bus;
     }
 
     @Override
     public void onCreate() {
         super.onCreate();
-
+        bus = new Bus();
         quEndpointsService = RetrofitService.createRestAdapter();
         if (BuildConfig.DEBUG) {
             Timber.plant(new Timber.DebugTree());
