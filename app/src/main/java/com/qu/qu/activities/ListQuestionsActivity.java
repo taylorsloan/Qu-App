@@ -34,6 +34,7 @@ import io.realm.RealmQuery;
 import io.realm.RealmResults;
 import me.drakeet.materialdialog.MaterialDialog;
 import rx.Observable;
+import rx.Subscriber;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
 import rx.schedulers.Schedulers;
@@ -91,8 +92,8 @@ public class ListQuestionsActivity extends ListActivity {
         results.sort("pk", RealmResults.SORT_ORDER_DESCENDING);
         for (AskedQuestion question : results) {
             askedQuestions.add(question);
-            questionAdapter.notifyDataSetChanged();
         }
+        questionAdapter.notifyDataSetChanged();
     }
 
     void removeQuestion(int position) {
@@ -182,18 +183,9 @@ public class ListQuestionsActivity extends ListActivity {
                     Observable<Question> request = BaseApplication
                             .getQuEndpointsService()
                             .createQuestion(question)
-                            .subscribeOn(Schedulers.io())
                             .observeOn(AndroidSchedulers.mainThread())
                             .cache();
-                    createQuestionSubscription = request.subscribe(q -> {
-                        Timber.d("Asked Question: %s", q.getQuestion());
-                        AskedQuestion askedQuestion = new AskedQuestion(q);
-                        realm.beginTransaction();
-                        AskedQuestion saved = realm.copyToRealm(askedQuestion);
-                        askedQuestions.add(0, saved);
-                        realm.commitTransaction();
-                        questionAdapter.notifyDataSetChanged();
-                    });
+                    createQuestionSubscription = request.subscribe(new QuestionSubscriber());
                     materialDialog.dismiss();
                 })
                 .setNegativeButton(getString(R.string.CANCEL), v -> {
@@ -212,6 +204,35 @@ public class ListQuestionsActivity extends ListActivity {
         }
         questionText.trim();
         return questionText;
+    }
+
+    class QuestionSubscriber extends Subscriber<Question> {
+
+        @Override
+        public void onCompleted() {
+            questionAdapter.notifyDataSetChanged();
+        }
+
+        @Override
+        public void onError(Throwable e) {
+            MaterialDialog errorDialog = new MaterialDialog(ListQuestionsActivity.this);
+            errorDialog.setTitle(getString(R.string.error))
+                    .setMessage(getString(R.string.error_could_not_connect))
+                    .setPositiveButton(getString(R.string.ok), v -> {
+                        errorDialog.dismiss();
+                    });
+            errorDialog.show();
+        }
+
+        @Override
+        public void onNext(Question question) {
+            Timber.d("Asked Question: %s", question.getQuestion());
+            AskedQuestion askedQuestion = new AskedQuestion(question);
+            realm.beginTransaction();
+            AskedQuestion saved = realm.copyToRealm(askedQuestion);
+            askedQuestions.add(0, saved);
+            realm.commitTransaction();
+        }
     }
 
 
