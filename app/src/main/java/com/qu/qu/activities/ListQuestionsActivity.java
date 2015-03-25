@@ -16,6 +16,7 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -41,7 +42,6 @@ import rx.Observable;
 import rx.Subscriber;
 import rx.Subscription;
 import rx.android.schedulers.AndroidSchedulers;
-import rx.schedulers.Schedulers;
 import timber.log.Timber;
 
 public class ListQuestionsActivity extends ListActivity {
@@ -99,6 +99,15 @@ public class ListQuestionsActivity extends ListActivity {
         }
     }
 
+    @Override
+    protected void onListItemClick(ListView l, View v, int position, long id) {
+        super.onListItemClick(l, v, position, id);
+        AskedQuestion askedQuestion = askedQuestions.get(position);
+        BaseApplication.getQuEndpointsService().getQuestion(askedQuestion.getPk())
+                .observeOn(AndroidSchedulers.mainThread())
+                .subscribe(new UpdateQuestionSubscriber(askedQuestion));
+    }
+
     void loadQuestions() {
         questionAdapter = new QuestionAdapter(this, askedQuestions);
         getListView().setAdapter(questionAdapter);
@@ -132,8 +141,14 @@ public class ListQuestionsActivity extends ListActivity {
         if ((scheduler == null) || scheduler.isShutdown()) {
             scheduler = Executors.newSingleThreadScheduledExecutor();
         }
-        scheduler.scheduleAtFixedRate
-                (() -> updateQuestions(), 0, UPDATE_INTERVAL, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(() -> {
+            /*try {
+                updateQuestions();
+            } catch (Exception e) {
+                Timber.e(e, "Error Updating");
+            }*/
+            updateQuestions();
+        }, 0, UPDATE_INTERVAL, TimeUnit.SECONDS);
     }
 
     @Override
@@ -143,24 +158,12 @@ public class ListQuestionsActivity extends ListActivity {
     }
 
     void updateQuestions() {
+        Timber.i("Updating Questions");
         Observable<AskedQuestion> questions = Observable.from(askedQuestions);
-        questions.subscribe(askedQuestion -> {
+        questions.observeOn(AndroidSchedulers.mainThread()).subscribe(askedQuestion -> {
             BaseApplication.getQuEndpointsService().getQuestion(askedQuestion.getPk())
-                    .subscribeOn(Schedulers.io())
                     .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(questionUpdate -> {
-                        Timber.d("Request update on Question: %s", questionUpdate.getQuestion());
-                        if (isUpdated(askedQuestion, questionUpdate)) {
-                            Timber.d("Updating Question: %s P: %s N: %s", questionUpdate.getQuestion()
-                                    , String.valueOf(questionUpdate.getPositiveCount()),
-                                    String.valueOf(questionUpdate.getNegativeCount()));
-                            realm.beginTransaction();
-                            askedQuestion.setPositiveCount(questionUpdate.getPositiveCount());
-                            askedQuestion.setNegativeCount(questionUpdate.getNegativeCount());
-                            realm.commitTransaction();
-                        }
-                        questionAdapter.notifyDataSetChanged();
-                    });
+                    .subscribe(new UpdateQuestionSubscriber(askedQuestion));
         });
     }
 
@@ -230,6 +233,40 @@ public class ListQuestionsActivity extends ListActivity {
         }
         questionText.trim();
         return questionText;
+    }
+
+    class UpdateQuestionSubscriber extends Subscriber<Question> {
+
+        AskedQuestion askedQuestion;
+
+        UpdateQuestionSubscriber(AskedQuestion askedQuestion) {
+            this.askedQuestion = askedQuestion;
+        }
+
+        @Override
+        public void onCompleted() {
+
+        }
+
+        @Override
+        public void onError(Throwable e) {
+//            Timber.e(e, "Error Updating");
+        }
+
+        @Override
+        public void onNext(Question question) {
+            Timber.d("Request update on Question: %s", question.getQuestion());
+            if (isUpdated(askedQuestion, question)) {
+                Timber.d("Updating Question: %s P: %s N: %s", question.getQuestion()
+                        , String.valueOf(question.getPositiveCount()),
+                        String.valueOf(question.getNegativeCount()));
+                realm.beginTransaction();
+                askedQuestion.setPositiveCount(question.getPositiveCount());
+                askedQuestion.setNegativeCount(question.getNegativeCount());
+                realm.commitTransaction();
+            }
+            questionAdapter.notifyDataSetChanged();
+        }
     }
 
     class QuestionSubscriber extends Subscriber<Question> {

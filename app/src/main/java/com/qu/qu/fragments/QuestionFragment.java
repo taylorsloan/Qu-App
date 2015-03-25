@@ -220,8 +220,12 @@ public class QuestionFragment extends RxFragment {
                 Timber.d("Positive Votes: %s", question.getPositiveCount());
                 textNegative.setTextColor(getResources().getColor(R.color.dim_white));
                 showCounts(question);
-
-            });
+                    }, error -> {
+                        Timber.e("Error: %s", error.getMessage(), error.getCause());
+//            error.printStackTrace();
+                        showErrorView(error);
+                    }
+            );
             new Handler().postDelayed(listener::loadNextQuestion, 3000);
         } catch (NullPointerException e) {
             buttonPositive.setClickable(true);
@@ -242,6 +246,10 @@ public class QuestionFragment extends RxFragment {
                 Timber.d("Negative Votes: %s", question.getNegativeCount());
                 textPositive.setTextColor(getResources().getColor(R.color.dim_white));
                 showCounts(question);
+            }, error -> {
+                Timber.e("Error: %s", error.getMessage(), error.getCause());
+//            error.printStackTrace();
+                showErrorView(error);
             });
             new Handler().postDelayed(listener::loadNextQuestion, 2000);
         } catch (NullPointerException e) {
@@ -272,7 +280,7 @@ public class QuestionFragment extends RxFragment {
         @Override
         public void onError(Throwable error) {
             Timber.e("Error: %s", error.getMessage(), error.getCause());
-            error.printStackTrace();
+//            error.printStackTrace();
             showErrorView(error);
         }
 
