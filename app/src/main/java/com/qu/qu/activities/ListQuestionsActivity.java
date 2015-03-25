@@ -3,7 +3,9 @@ package com.qu.qu.activities;
 import android.app.Activity;
 import android.app.ListActivity;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.speech.RecognizerIntent;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.MenuInflater;
@@ -13,7 +15,9 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.qu.qu.BaseApplication;
 import com.qu.qu.R;
@@ -42,14 +46,25 @@ import timber.log.Timber;
 
 public class ListQuestionsActivity extends ListActivity {
 
+    protected static final int REQUEST_OK = 1;
+    View.OnClickListener micButtonListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+            i.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, "en-US");
+            try {
+                startActivityForResult(i, REQUEST_OK);
+            } catch (Exception e) {
+                Toast.makeText(ListQuestionsActivity.this, "Error initializing speech to text engine.", Toast.LENGTH_LONG).show();
+            }
+        }
+    };
     private static final int UPDATE_INTERVAL = 30;
-
     ScheduledExecutorService scheduler;
-
     View dialogView;
-
+    EditText askingText;
+    ImageButton micAskButton;
     Subscription createQuestionSubscription;
-
     ArrayList<AskedQuestion> askedQuestions = new ArrayList<>();
     QuestionAdapter questionAdapter;
     Realm realm;
@@ -173,12 +188,14 @@ public class ListQuestionsActivity extends ListActivity {
     @OnClick(R.id.button_ask)
     void createQuestion() {
         dialogView = getLayoutInflater().inflate(R.layout.dialog_ask_question, null);
+        askingText = (EditText) dialogView.findViewById(R.id.et_question);
+        micAskButton = (ImageButton) dialogView.findViewById(R.id.button_mic_ask);
+        micAskButton.setOnClickListener(micButtonListener);
         MaterialDialog materialDialog = new MaterialDialog(this);
         materialDialog.setTitle(getString(R.string.ask_question))
                 .setContentView(dialogView)
                 .setPositiveButton(getString(R.string.ASK), v -> {
-                    EditText editText = (EditText) dialogView.findViewById(R.id.et_question);
-                    String questionText = prepareQuestion(editText.getText().toString());
+                    String questionText = prepareQuestion(askingText.getText().toString());
                     Question question = new Question(questionText);
                     Observable<Question> request = BaseApplication
                             .getQuEndpointsService()
@@ -192,6 +209,15 @@ public class ListQuestionsActivity extends ListActivity {
                     materialDialog.dismiss();
                 });
         materialDialog.show();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == REQUEST_OK && resultCode == RESULT_OK) {
+            ArrayList<String> thingsYouSaid = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+            askingText.setText(thingsYouSaid.get(0));
+        }
     }
 
     String prepareQuestion(String text) {
