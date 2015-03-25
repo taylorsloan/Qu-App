@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="lynch">#6C7A89</color>
+    <color name="alizarin">#e74c3c</color>
+    <color name="ecstasy">#F9690E</color>
+    <color name="ripelemon">#F7CA18</color>
+    <color name="emerald">#3FC380</color>
+    <color name="rebeccapurple">#663399</color>
+    <color name="royalblue">#4183D7</color>
+    <color name="cabaret">#D2527F</color>
+    <color name="dim_white">#64ffffff</color>
+</resources>

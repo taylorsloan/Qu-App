@@ -228,7 +228,7 @@ public class ListQuestionsActivity extends ListActivity {
         } else if (!questionText.endsWith("?")) {
             questionText = questionText + "?";
         }
-        questionText.trim();
+        questionText.trim().replaceAll("(?:\\n|\\r)", "");
         return questionText;
     }
 

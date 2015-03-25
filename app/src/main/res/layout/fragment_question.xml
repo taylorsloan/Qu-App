@@ -1,0 +1,118 @@
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:ev="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    xmlns:wheel="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.qu.qu.fragments.QuestionFragment">
+
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <RelativeLayout
+            android:id="@+id/main_content"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_centerHorizontal="true"
+            android:layout_marginTop="50dp">
+
+            <TextView
+                android:id="@+id/text_question"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerHorizontal="true"
+                android:gravity="center_horizontal"
+                android:minLines="@integer/question_text_min_lines"
+                android:paddingBottom="24dp"
+                android:paddingLeft="24dp"
+                android:paddingRight="24dp"
+                android:textSize="25dp" />
+
+            <com.pnikosis.materialishprogress.ProgressWheel
+                android:id="@+id/progress_bar_question"
+                android:layout_width="100dp"
+                android:layout_height="100dp"
+                android:layout_centerHorizontal="true"
+                wheel:matProg_barColor="@android:color/white"
+                wheel:matProg_progressIndeterminate="true"
+                wheel:matProg_rimColor="@android:color/transparent" />
+        </RelativeLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_answer_buttons"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/main_content"
+            android:layout_centerHorizontal="true"
+            android:orientation="horizontal"
+            android:paddingTop="@dimen/answer_buttons_top_margin">
+
+            <ImageButton
+                android:id="@+id/button_postive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/selector_thumb_up" />
+
+            <Space
+                android:layout_width="@dimen/answer_button_gap"
+                android:layout_height="0px" />
+
+            <ImageButton
+                android:id="@+id/button_negative"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/selector_thumb_down" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/layout_counts"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_below="@+id/main_content"
+            android:layout_centerHorizontal="true"
+            android:orientation="horizontal"
+            android:paddingTop="@dimen/answer_buttons_top_margin"
+            android:visibility="gone">
+
+            <TextView
+                android:id="@+id/text_positive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawableTop="@drawable/ic_action_thumb_up"
+                android:gravity="center"
+                android:textSize="20sp" />
+
+            <Space
+                android:layout_width="@dimen/answer_button_gap"
+                android:layout_height="0dp" />
+
+            <TextView
+                android:id="@+id/text_negative"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:drawableTop="@drawable/ic_action_thumb_down"
+                android:gravity="center"
+                android:textSize="20sp" />
+        </LinearLayout>
+    </RelativeLayout>
+
+    <tr.xip.errorview.ErrorView
+        android:id="@+id/error_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_centerInParent="true"
+        android:visibility="gone"
+        ev:ev_errorSubtitleColor="@android:color/white"
+        ev:ev_errorTitleColor="@android:color/white"
+        ev:ev_retryButtonTextColor="@android:color/white" />
+
+    <com.getbase.floatingactionbutton.AddFloatingActionButton
+        android:id="@+id/create_question"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentEnd="true"
+        android:layout_margin="16dp" />
+
+</RelativeLayout>

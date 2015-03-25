@@ -1,0 +1,61 @@
+<resources>
+
+    <!-- Base application theme. -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <!-- Customize your theme here. -->
+    </style>
+
+    <style name="BaseQuestionTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:textColor">@android:color/white</item>
+    </style>
+
+    <style name="QuestionAlizarin" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/alizarin</item>
+        <item name="android:colorBackground">@color/alizarin</item>
+        <item name="android:background">@color/alizarin</item>
+    </style>
+
+    <style name="QuestionRebeccaPurple" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/rebeccapurple</item>
+        <item name="android:colorBackground">@color/rebeccapurple</item>
+        <item name="android:background">@color/rebeccapurple</item>
+    </style>
+
+    <style name="QuestionRoyalBlue" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/royalblue</item>
+        <item name="android:colorBackground">@color/royalblue</item>
+        <item name="android:background">@color/royalblue</item>
+    </style>
+
+    <style name="QuestionEmerald" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/emerald</item>
+        <item name="android:colorBackground">@color/emerald</item>
+        <item name="android:background">@color/emerald</item>
+    </style>
+
+    <style name="QuestionRipeLemon" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/ripelemon</item>
+        <item name="android:colorBackground">@color/ripelemon</item>
+        <item name="android:background">@color/ripelemon</item>
+    </style>
+
+    <style name="QuestionEcstasy" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/ecstasy</item>
+        <item name="android:colorBackground">@color/ecstasy</item>
+        <item name="android:background">@color/ecstasy</item>
+    </style>
+
+    <style name="QuestionLynch" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/lynch</item>
+        <item name="android:colorBackground">@color/lynch</item>
+        <item name="android:background">@color/lynch</item>
+    </style>
+
+    <style name="QuestionCabaret" parent="BaseQuestionTheme">
+        <item name="android:windowBackground">@color/cabaret</item>
+        <item name="android:colorBackground">@color/cabaret</item>
+        <item name="android:background">@color/cabaret</item>
+    </style>
+
+
+</resources>
