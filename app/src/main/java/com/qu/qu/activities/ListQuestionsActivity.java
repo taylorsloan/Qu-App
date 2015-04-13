@@ -198,15 +198,18 @@ public class ListQuestionsActivity extends ListActivity {
         materialDialog.setTitle(getString(R.string.ask_question))
                 .setContentView(dialogView)
                 .setPositiveButton(getString(R.string.ASK), v -> {
-                    String questionText = prepareQuestion(askingText.getText().toString());
-                    Question question = new Question(questionText);
-                    Observable<Question> request = BaseApplication
-                            .getQuEndpointsService()
-                            .createQuestion(question)
-                            .observeOn(AndroidSchedulers.mainThread())
-                            .cache();
-                    createQuestionSubscription = request.subscribe(new QuestionSubscriber());
-                    materialDialog.dismiss();
+                    String questionText = askingText.getText().toString();
+                    if ((questionText != null) && questionText.length() > 0) {
+                        questionText = prepareQuestion(askingText.getText().toString());
+                        Question question = new Question(questionText);
+                        Observable<Question> request = BaseApplication
+                                .getQuEndpointsService()
+                                .createQuestion(question)
+                                .observeOn(AndroidSchedulers.mainThread())
+                                .cache();
+                        createQuestionSubscription = request.subscribe(new QuestionSubscriber());
+                        materialDialog.dismiss();
+                    }
                 })
                 .setNegativeButton(getString(R.string.CANCEL), v -> {
                     materialDialog.dismiss();
