@@ -1,0 +1,2 @@
+include ':app', ':Errorview'
+project(':Errorview').projectDir = new File('libraries/Errorview')
