@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.speech.RecognizerIntent;
+import android.support.annotation.NonNull;
 import android.view.ContextMenu;
 import android.view.LayoutInflater;
 import android.view.MenuInflater;
@@ -16,32 +17,34 @@ import android.widget.AdapterView;
 import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ImageButton;
+import android.widget.ListAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.firebase.ui.database.FirebaseListAdapter;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.ChildEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
 import com.qu.qu.BaseApplication;
 import com.qu.qu.R;
-import com.qu.qu.net.models.AskedQuestion;
-import com.qu.qu.net.models.Question;
+import com.qu.qu.data.QuestionManager;
+import com.qu.qu.data.models.Question;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import butterknife.OnClick;
-import io.realm.Realm;
-import io.realm.RealmQuery;
-import io.realm.RealmResults;
 import me.drakeet.materialdialog.MaterialDialog;
-import rx.Observable;
-import rx.Subscriber;
 import rx.Subscription;
-import rx.android.schedulers.AndroidSchedulers;
 import timber.log.Timber;
 
 public class ListQuestionsActivity extends ListActivity {
@@ -59,24 +62,29 @@ public class ListQuestionsActivity extends ListActivity {
             }
         }
     };
-    private static final int UPDATE_INTERVAL = 30;
-    ScheduledExecutorService scheduler;
+
     View dialogView;
     EditText askingText;
     ImageButton micAskButton;
-    Subscription createQuestionSubscription;
-    ArrayList<AskedQuestion> askedQuestions = new ArrayList<>();
+    ArrayList<Question> askedQuestions = new ArrayList<>();
     QuestionAdapter questionAdapter;
-    Realm realm;
+
+    QuestionManager questionManager;
+    DatabaseReference userQuestions;
+    FirebaseListAdapter firebaseQuestionAdapter;
+
+    FirebaseAuth mAuth;
+    FirebaseUser mUser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_list_questions);
         ButterKnife.inject(this);
-        realm = Realm.getInstance(this);
-        loadQuestions();
         registerForContextMenu(getListView());
+        mAuth = FirebaseAuth.getInstance();
+        questionManager = ((BaseApplication)getApplication()).getQuestionManager();
+//        questionAdapter = new QuestionAdapter(this, askedQuestions);
     }
 
     @Override
@@ -102,33 +110,15 @@ public class ListQuestionsActivity extends ListActivity {
     @Override
     protected void onListItemClick(ListView l, View v, int position, long id) {
         super.onListItemClick(l, v, position, id);
-        AskedQuestion askedQuestion = askedQuestions.get(position);
-        BaseApplication.getQuEndpointsService().getQuestion(askedQuestion.getPk())
-                .observeOn(AndroidSchedulers.mainThread())
-                .subscribe(new UpdateQuestionSubscriber(askedQuestion));
-    }
-
-    void loadQuestions() {
-        questionAdapter = new QuestionAdapter(this, askedQuestions);
-        getListView().setAdapter(questionAdapter);
-        RealmQuery<AskedQuestion> query = realm.where(AskedQuestion.class);
-        RealmResults<AskedQuestion> results = query.findAll();
-        results.sort("pk", RealmResults.SORT_ORDER_DESCENDING);
-        for (AskedQuestion question : results) {
-            askedQuestions.add(question);
-        }
-        questionAdapter.notifyDataSetChanged();
+        Question askedQuestion = askedQuestions.get(position);
     }
 
     void removeQuestion(int position) {
         try {
-            AskedQuestion selectedQuestion = askedQuestions.get(position);
+            Question selectedQuestion = askedQuestions.get(position);
             Timber.d("Removing Question: %s Position: %s", selectedQuestion.getQuestion()
                     , String.valueOf(position));
             askedQuestions.remove(position);
-            realm.beginTransaction();
-            selectedQuestion.removeFromRealm();
-            realm.commitTransaction();
             questionAdapter.notifyDataSetChanged();
         } catch (IndexOutOfBoundsException e) {
             Timber.e("Could not remove question at index %s", String.valueOf(position));
@@ -138,53 +128,49 @@ public class ListQuestionsActivity extends ListActivity {
     @Override
     protected void onStart() {
         super.onStart();
-        if ((scheduler == null) || scheduler.isShutdown()) {
-            scheduler = Executors.newSingleThreadScheduledExecutor();
+        mUser = mAuth.getCurrentUser();
+        if(mUser == null){
+            mAuth.signInAnonymously().addOnCompleteListener(this, anonymousSignInListener);
         }
-        scheduler.scheduleAtFixedRate(() -> {
-            /*try {
-                updateQuestions();
-            } catch (Exception e) {
-                Timber.e(e, "Error Updating");
-            }*/
-            updateQuestions();
-        }, 0, UPDATE_INTERVAL, TimeUnit.SECONDS);
+        userQuestions = questionManager.getUserQuestionDatabase(mUser.getUid());
+//        userQuestions.addChildEventListener(questionEventListener);
+        firebaseQuestionAdapter = new FirebaseListAdapter<Question>(this, Question.class, R.layout.item_asked_question, userQuestions){
+            @Override
+            protected void populateView(View v, Question model, int position) {
+                ((TextView)v.findViewById(R.id.text_question)).setText(model.getQuestion());
+                ((TextView)v.findViewById(R.id.text_positive)).setText(String.valueOf(model.getPositiveCount()));
+                ((TextView)v.findViewById(R.id.text_negative)).setText(String.valueOf(model.getNegativeCount()));
+            }
+        };
+        getListView().setAdapter(firebaseQuestionAdapter);
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        scheduler.shutdown();
+        firebaseQuestionAdapter.cleanup();
+//        userQuestions.removeEventListener(questionEventListener);
     }
 
-    void updateQuestions() {
-        Timber.i("Updating Questions");
-        Observable<AskedQuestion> questions = Observable.from(askedQuestions);
-        questions.observeOn(AndroidSchedulers.mainThread()).subscribe(askedQuestion -> {
-            BaseApplication.getQuEndpointsService().getQuestion(askedQuestion.getPk())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .subscribe(new UpdateQuestionSubscriber(askedQuestion));
-        });
-    }
-
-    boolean isUpdated(AskedQuestion askedQuestion, Question questionUpdate) {
-        boolean isUpdated = false;
-        if (askedQuestion.getPositiveCount() != questionUpdate.getPositiveCount()) {
-            isUpdated = true;
+    OnCompleteListener<AuthResult> anonymousSignInListener = new OnCompleteListener<AuthResult>() {
+        @Override
+        public void onComplete(@NonNull Task<AuthResult> task) {
+            if (task.isSuccessful()) {
+                // Sign in success, update UI with the signed-in user's information
+                Timber.d("signInAnonymously:success");
+                mUser = mAuth.getCurrentUser();
+            } else {
+                // If sign in fails, display a message to the user.
+                Timber.w("signInAnonymously:failure", task.getException());
+                Toast.makeText(ListQuestionsActivity.this, "Authentication failed.",
+                        Toast.LENGTH_SHORT).show();
+            }
         }
-        if (askedQuestion.getNegativeCount() != questionUpdate.getNegativeCount()) {
-            isUpdated = true;
-        }
-        return isUpdated;
-    }
+    };
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (createQuestionSubscription != null) {
-            createQuestionSubscription.unsubscribe();
-        }
-        realm.close();
 
     }
 
@@ -194,25 +180,25 @@ public class ListQuestionsActivity extends ListActivity {
         askingText = (EditText) dialogView.findViewById(R.id.et_question);
         micAskButton = (ImageButton) dialogView.findViewById(R.id.button_mic_ask);
         micAskButton.setOnClickListener(micButtonListener);
-        MaterialDialog materialDialog = new MaterialDialog(this);
+        final MaterialDialog materialDialog = new MaterialDialog(this);
         materialDialog.setTitle(getString(R.string.ask_question))
                 .setContentView(dialogView)
-                .setPositiveButton(getString(R.string.ASK), v -> {
-                    String questionText = askingText.getText().toString();
-                    if ((questionText != null) && questionText.length() > 0) {
-                        questionText = prepareQuestion(askingText.getText().toString());
-                        Question question = new Question(questionText);
-                        Observable<Question> request = BaseApplication
-                                .getQuEndpointsService()
-                                .createQuestion(question)
-                                .observeOn(AndroidSchedulers.mainThread())
-                                .cache();
-                        createQuestionSubscription = request.subscribe(new QuestionSubscriber());
+                .setPositiveButton(getString(R.string.ASK), new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        String questionText = askingText.getText().toString();
+                        if ((questionText != null) && questionText.length() > 0) {
+                            questionText = prepareQuestion(askingText.getText().toString());
+                            Question question = new Question(questionText);
+                            questionManager.createQuestion(question, mUser.getUid());
+                            materialDialog.dismiss();
+                        }
+                    }
+                }).setNegativeButton(getString(R.string.CANCEL), new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
                         materialDialog.dismiss();
                     }
-                })
-                .setNegativeButton(getString(R.string.CANCEL), v -> {
-                    materialDialog.dismiss();
                 });
         materialDialog.show();
     }
@@ -238,76 +224,41 @@ public class ListQuestionsActivity extends ListActivity {
         return questionText;
     }
 
-    class UpdateQuestionSubscriber extends Subscriber<Question> {
-
-        AskedQuestion askedQuestion;
-
-        UpdateQuestionSubscriber(AskedQuestion askedQuestion) {
-            this.askedQuestion = askedQuestion;
-        }
-
+    ChildEventListener questionEventListener = new ChildEventListener() {
         @Override
-        public void onCompleted() {
-
-        }
-
-        @Override
-        public void onError(Throwable e) {
-//            Timber.e(e, "Error Updating");
-        }
-
-        @Override
-        public void onNext(Question question) {
-            Timber.d("Request update on Question: %s", question.getQuestion());
-            if (isUpdated(askedQuestion, question)) {
-                Timber.d("Updating Question: %s P: %s N: %s", question.getQuestion()
-                        , String.valueOf(question.getPositiveCount()),
-                        String.valueOf(question.getNegativeCount()));
-                realm.beginTransaction();
-                askedQuestion.setPositiveCount(question.getPositiveCount());
-                askedQuestion.setNegativeCount(question.getNegativeCount());
-                realm.commitTransaction();
-            }
-            questionAdapter.notifyDataSetChanged();
-        }
-    }
-
-    class QuestionSubscriber extends Subscriber<Question> {
-
-        @Override
-        public void onCompleted() {
+        public void onChildAdded(DataSnapshot dataSnapshot, String s) {
+            Question q = dataSnapshot.getValue(Question.class);
+            askedQuestions.add(q);
             questionAdapter.notifyDataSetChanged();
         }
 
         @Override
-        public void onError(Throwable e) {
-            MaterialDialog errorDialog = new MaterialDialog(ListQuestionsActivity.this);
-            errorDialog.setTitle(getString(R.string.error))
-                    .setMessage(getString(R.string.error_could_not_connect))
-                    .setPositiveButton(getString(R.string.ok), v -> {
-                        errorDialog.dismiss();
-                    });
-            errorDialog.show();
+        public void onChildChanged(DataSnapshot dataSnapshot, String s) {
+
         }
 
         @Override
-        public void onNext(Question question) {
-            Timber.d("Asked Question: %s", question.getQuestion());
-            AskedQuestion askedQuestion = new AskedQuestion(question);
-            realm.beginTransaction();
-            AskedQuestion saved = realm.copyToRealm(askedQuestion);
-            askedQuestions.add(0, saved);
-            realm.commitTransaction();
-        }
-    }
+        public void onChildRemoved(DataSnapshot dataSnapshot) {
 
+        }
+
+        @Override
+        public void onChildMoved(DataSnapshot dataSnapshot, String s) {
+
+        }
+
+        @Override
+        public void onCancelled(DatabaseError databaseError) {
+
+        }
+    };
 
     class QuestionAdapter extends BaseAdapter {
 
-        List<AskedQuestion> questions;
+        List<Question> questions;
         LayoutInflater inflater;
 
-        QuestionAdapter(Activity context, List<AskedQuestion> questions) {
+        QuestionAdapter(Activity context, List<Question> questions) {
             this.questions = questions;
             inflater = (LayoutInflater) context
                     .getSystemService(Context.LAYOUT_INFLATER_SERVICE);
@@ -319,7 +270,7 @@ public class ListQuestionsActivity extends ListActivity {
         }
 
         @Override
-        public AskedQuestion getItem(int position) {
+        public Question getItem(int position) {
             return questions.get(position);
         }
 
@@ -339,7 +290,7 @@ public class ListQuestionsActivity extends ListActivity {
             } else {
                 viewHolder = (QuestionViewHolder) v.getTag();
             }
-            AskedQuestion question = getItem(position);
+            Question question = getItem(position);
             viewHolder.textQuestion.setText(question.getQuestion());
             viewHolder.textPositive.setText(String.valueOf(question.getPositiveCount()));
             viewHolder.textNegative.setText(String.valueOf(question.getNegativeCount()));

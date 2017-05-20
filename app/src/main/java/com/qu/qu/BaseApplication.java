@@ -2,8 +2,8 @@ package com.qu.qu;
 
 import android.app.Application;
 
-import com.qu.qu.net.QuEndpointsService;
-import com.qu.qu.net.RetrofitService;
+
+import com.qu.qu.data.QuestionManager;
 
 import timber.log.Timber;
 
@@ -12,21 +12,22 @@ import timber.log.Timber;
  */
 public class BaseApplication extends Application {
 
-    private static QuEndpointsService quEndpointsService;
+    private QuestionManager mQuestionManager;
 
-    public static QuEndpointsService getQuEndpointsService() {
-        return quEndpointsService;
-    }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        quEndpointsService = RetrofitService.createRestAdapter();
         if (BuildConfig.DEBUG) {
             Timber.plant(new Timber.DebugTree());
         } else {
             Timber.plant(new CrashReportingTree());
         }
+        mQuestionManager = new QuestionManager();
+    }
+
+    public QuestionManager getQuestionManager(){
+        return mQuestionManager;
     }
 
     /**

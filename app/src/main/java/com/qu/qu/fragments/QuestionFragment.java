@@ -8,7 +8,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
-import android.os.Handler;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
@@ -22,22 +21,15 @@ import android.widget.TextView;
 
 import com.getbase.floatingactionbutton.FloatingActionButton;
 import com.pnikosis.materialishprogress.ProgressWheel;
-import com.qu.qu.BaseApplication;
 import com.qu.qu.R;
 import com.qu.qu.activities.ListQuestionsActivity;
-import com.qu.qu.net.QuEndpointsService;
-import com.qu.qu.net.models.Question;
+import com.qu.qu.data.models.Question;
 
 import butterknife.ButterKnife;
 import butterknife.InjectView;
 import butterknife.OnClick;
-import retrofit.RetrofitError;
-import rx.Observable;
 import rx.Subscriber;
-import rx.Subscription;
 import rx.android.app.RxFragment;
-import rx.android.schedulers.AndroidSchedulers;
-import rx.subjects.PublishSubject;
 import timber.log.Timber;
 import tr.xip.errorview.ErrorView;
 
@@ -50,8 +42,6 @@ public class QuestionFragment extends RxFragment {
             R.style.QuestionRipeLemon, R.style.QuestionEmerald, R.style.QuestionRoyalBlue,
             R.style.QuestionRebeccaPurple, R.style.QuestionLynch, R.style.QuestionCabaret};
     private static final String KEY_STYLE = "style";
-    public static PublishSubject<Boolean> isConnected = PublishSubject.create();
-    static QuEndpointsService quEndpointsService = BaseApplication.getQuEndpointsService();
     int styleIndex = 0;
     int backgroundColor;
 
@@ -85,8 +75,7 @@ public class QuestionFragment extends RxFragment {
 
     @InjectView(R.id.main_content)
     View mainContent;
-    Observable<Question> getQuestionRequest;
-    Subscription getQuestionSubscription, answerPositiveSubscription, answerNegativeSubscription;
+
     Question question;
 
     public QuestionFragment() {
@@ -107,8 +96,8 @@ public class QuestionFragment extends RxFragment {
         if (getArguments() != null) {
             styleIndex = getArguments().getInt(KEY_STYLE);
         }
-        getQuestionRequest = quEndpointsService.getRandomQuestion()
-                .observeOn(AndroidSchedulers.mainThread()).retry(3);
+//        getQuestionRequest = quEndpointsService.getRandomQuestion()
+//                .observeOn(AndroidSchedulers.mainThread()).retry(3);
     }
 
     @Override
@@ -131,7 +120,6 @@ public class QuestionFragment extends RxFragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         configCreateQuestionButton();
-        getQuestionSubscription = getQuestionRequest.subscribe(new QuestionSubscriber());
     }
 
     @Override
@@ -150,36 +138,6 @@ public class QuestionFragment extends RxFragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
-        if (answerPositiveSubscription != null) {
-            answerPositiveSubscription.unsubscribe();
-        }
-        if (answerNegativeSubscription != null) {
-            answerNegativeSubscription.unsubscribe();
-        }
-    }
-
-    @SuppressLint("ResourceAsColor")
-    void showErrorView(Throwable error) {
-        if (error instanceof RetrofitError) {
-            RetrofitError retrofitError = (RetrofitError) error;
-            if (retrofitError.getKind() == RetrofitError.Kind.NETWORK) {
-                errorView.setErrorTitle("Could Not Connect");
-                errorView.setErrorSubtitle("Check Internet Connectivity");
-            } else if (retrofitError.getKind() == RetrofitError.Kind.HTTP) {
-                errorView.setError(retrofitError.getResponse().getStatus());
-            }
-        }
-        errorView.setOnRetryListener(() -> {
-            getQuestionSubscription.unsubscribe();
-            getQuestionSubscription = getQuestionRequest.subscribe(new QuestionSubscriber());
-        });
-        mainContent.setVisibility(View.GONE);
-        errorView.setVisibility(View.VISIBLE);
-    }
-
-    void hideErrorView() {
-        mainContent.setVisibility(View.VISIBLE);
-        errorView.setVisibility(View.GONE);
     }
 
     public int getStyleBackgroundColor(Context context) {
@@ -213,7 +171,7 @@ public class QuestionFragment extends RxFragment {
         try {
             buttonPositive.setClickable(false);
             buttonNegative.setClickable(false);
-            Observable<Question> request = quEndpointsService.answerPositive(question.getId())
+            /*Observable<Question> request = quEndpointsService.answerPositive(question.getId())
                     .observeOn(AndroidSchedulers.mainThread())
                     .cache();
             answerPositiveSubscription = request.subscribe(question -> {
@@ -226,7 +184,7 @@ public class QuestionFragment extends RxFragment {
                         showErrorView(error);
                     }
             );
-            new Handler().postDelayed(listener::loadNextQuestion, 3000);
+            new Handler().postDelayed(listener::loadNextQuestion, 3000);*/
         } catch (NullPointerException e) {
             buttonPositive.setClickable(true);
             buttonNegative.setClickable(true);
@@ -239,7 +197,7 @@ public class QuestionFragment extends RxFragment {
         try {
             buttonPositive.setClickable(false);
             buttonNegative.setClickable(false);
-            Observable<Question> request = quEndpointsService.answerNegative(question.getId())
+            /*Observable<Question> request = quEndpointsService.answerNegative(question.getId())
                     .observeOn(AndroidSchedulers.mainThread())
                     .cache();
             answerNegativeSubscription = request.subscribe(question -> {
@@ -251,7 +209,7 @@ public class QuestionFragment extends RxFragment {
 //            error.printStackTrace();
                 showErrorView(error);
             });
-            new Handler().postDelayed(listener::loadNextQuestion, 2000);
+            new Handler().postDelayed(listener::loadNextQuestion, 2000);*/
         } catch (NullPointerException e) {
             buttonPositive.setClickable(true);
             buttonNegative.setClickable(true);
@@ -274,14 +232,14 @@ public class QuestionFragment extends RxFragment {
     class QuestionSubscriber extends Subscriber<Question> {
         @Override
         public void onCompleted() {
-            hideErrorView();
+//            hideErrorView();
         }
 
         @Override
         public void onError(Throwable error) {
             Timber.e("Error: %s", error.getMessage(), error.getCause());
 //            error.printStackTrace();
-            showErrorView(error);
+//            showErrorView(error);
         }
 
         @Override
