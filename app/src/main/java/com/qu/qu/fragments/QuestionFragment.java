@@ -8,6 +8,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
@@ -20,9 +22,16 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.getbase.floatingactionbutton.FloatingActionButton;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.ValueEventListener;
 import com.pnikosis.materialishprogress.ProgressWheel;
+import com.qu.qu.BaseApplication;
 import com.qu.qu.R;
 import com.qu.qu.activities.ListQuestionsActivity;
+import com.qu.qu.activities.QuestionActivity;
+import com.qu.qu.data.QuestionManager;
 import com.qu.qu.data.models.Question;
 
 import butterknife.ButterKnife;
@@ -36,7 +45,7 @@ import tr.xip.errorview.ErrorView;
 /**
  * A simple {@link Fragment} subclass.
  */
-public class QuestionFragment extends RxFragment {
+public class QuestionFragment extends RxFragment implements QuestionManager.OnReceivedQuestionListener{
 
     public static final Integer[] STYLES = {R.style.QuestionAlizarin, R.style.QuestionEcstasy,
             R.style.QuestionRipeLemon, R.style.QuestionEmerald, R.style.QuestionRoyalBlue,
@@ -77,6 +86,14 @@ public class QuestionFragment extends RxFragment {
     View mainContent;
 
     Question question;
+    DatabaseReference questionRef;
+
+    boolean shouldShowCounts = false;
+
+    ValueEventListener questionListener;
+    QuestionManager questionManager;
+
+    Handler nextQuestionHandler;
 
     public QuestionFragment() {
         // Required empty public constructor
@@ -96,8 +113,29 @@ public class QuestionFragment extends RxFragment {
         if (getArguments() != null) {
             styleIndex = getArguments().getInt(KEY_STYLE);
         }
-//        getQuestionRequest = quEndpointsService.getRandomQuestion()
-//                .observeOn(AndroidSchedulers.mainThread()).retry(3);
+        questionListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                QuestionFragment.this.question = dataSnapshot.getValue(Question.class);
+                if(TextUtils.isEmpty(textQuestion.getText()) ){
+                    textQuestion.setText(question.getQuestion());
+                    final Animation in = new AlphaAnimation(0.0f, 1.0f);
+                    in.setDuration(1000);
+                    textQuestion.startAnimation(in);
+                    progressWheel.setVisibility(View.GONE);
+                }
+                Timber.d("Question Changed");
+                if(shouldShowCounts){
+                    showCounts(question);
+                }
+            }
+
+            @Override
+            public void onCancelled(DatabaseError databaseError) {
+                Timber.w(databaseError.toException(), "Error retrieving question");
+            }
+        };
+        nextQuestionHandler = new Handler();
     }
 
     @Override
@@ -120,6 +158,7 @@ public class QuestionFragment extends RxFragment {
     public void onViewCreated(View view, Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         configCreateQuestionButton();
+        questionManager.retrieveRandomQuestionKey(this);
     }
 
     @Override
@@ -127,6 +166,7 @@ public class QuestionFragment extends RxFragment {
         super.onAttach(activity);
         listener = (OnLoadNextQuestionListener) activity;
         setRetainInstance(true);
+        questionManager = ((BaseApplication)getActivity().getApplication()).getQuestionManager();
     }
 
     @Override
@@ -138,6 +178,7 @@ public class QuestionFragment extends RxFragment {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        questionRef.removeEventListener(questionListener);
     }
 
     public int getStyleBackgroundColor(Context context) {
@@ -171,20 +212,10 @@ public class QuestionFragment extends RxFragment {
         try {
             buttonPositive.setClickable(false);
             buttonNegative.setClickable(false);
-            /*Observable<Question> request = quEndpointsService.answerPositive(question.getId())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .cache();
-            answerPositiveSubscription = request.subscribe(question -> {
-                Timber.d("Positive Votes: %s", question.getPositiveCount());
-                textNegative.setTextColor(getResources().getColor(R.color.dim_white));
-                showCounts(question);
-                    }, error -> {
-                        Timber.e("Error: %s", error.getMessage(), error.getCause());
-//            error.printStackTrace();
-                        showErrorView(error);
-                    }
-            );
-            new Handler().postDelayed(listener::loadNextQuestion, 3000);*/
+            questionManager.incPositiveCount(questionRef);
+            Timber.d("Positive Votes: %s", question.getPositiveCount());
+            textNegative.setTextColor(getResources().getColor(R.color.dim_white));
+            shouldShowCounts = true;
         } catch (NullPointerException e) {
             buttonPositive.setClickable(true);
             buttonNegative.setClickable(true);
@@ -197,19 +228,10 @@ public class QuestionFragment extends RxFragment {
         try {
             buttonPositive.setClickable(false);
             buttonNegative.setClickable(false);
-            /*Observable<Question> request = quEndpointsService.answerNegative(question.getId())
-                    .observeOn(AndroidSchedulers.mainThread())
-                    .cache();
-            answerNegativeSubscription = request.subscribe(question -> {
-                Timber.d("Negative Votes: %s", question.getNegativeCount());
-                textPositive.setTextColor(getResources().getColor(R.color.dim_white));
-                showCounts(question);
-            }, error -> {
-                Timber.e("Error: %s", error.getMessage(), error.getCause());
-//            error.printStackTrace();
-                showErrorView(error);
-            });
-            new Handler().postDelayed(listener::loadNextQuestion, 2000);*/
+            questionManager.incNegativeCount(questionRef);
+            Timber.d("Negative Votes: %s", question.getNegativeCount());
+            textPositive.setTextColor(getResources().getColor(R.color.dim_white));
+            shouldShowCounts = true;
         } catch (NullPointerException e) {
             buttonPositive.setClickable(true);
             buttonNegative.setClickable(true);
@@ -223,35 +245,26 @@ public class QuestionFragment extends RxFragment {
         final Animation in = new AlphaAnimation(0.0f, 1.0f);
         in.setDuration(500);
         layoutCounts.startAnimation(in);
+        triggerNextQuestion();
+    }
+
+    @Override
+    public void onReceivedQuestion(DatabaseReference ref) {
+        this.questionRef = ref;
+        ref.addValueEventListener(questionListener);
     }
 
     public interface OnLoadNextQuestionListener {
         void loadNextQuestion();
     }
 
-    class QuestionSubscriber extends Subscriber<Question> {
-        @Override
-        public void onCompleted() {
-//            hideErrorView();
-        }
-
-        @Override
-        public void onError(Throwable error) {
-            Timber.e("Error: %s", error.getMessage(), error.getCause());
-//            error.printStackTrace();
-//            showErrorView(error);
-        }
-
-        @Override
-        public void onNext(Question question) {
-            Timber.d(question.getQuestion());
-            QuestionFragment.this.question = question;
-            textQuestion.setText(question.getQuestion());
-            final Animation in = new AlphaAnimation(0.0f, 1.0f);
-            in.setDuration(1000);
-            textQuestion.startAnimation(in);
-            progressWheel.setVisibility(View.GONE);
-        }
+    private void triggerNextQuestion(){
+        nextQuestionHandler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                ((OnLoadNextQuestionListener) getActivity()).loadNextQuestion();
+            }
+        }, 2000);
     }
 
 }

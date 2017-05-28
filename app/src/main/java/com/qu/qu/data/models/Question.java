@@ -11,6 +11,7 @@ public class Question {
     String question;
     int positiveCount = 0;
     int negativeCount = 0;
+    String user;
 
     public Question() {
     }
@@ -31,6 +32,13 @@ public class Question {
         return negativeCount;
     }
 
+    public String getUser() {
+        return user;
+    }
+
+    public void setUser(String user) {
+        this.user = user;
+    }
 
     public void setQuestion(String question) {
         this.question = question;
@@ -59,6 +67,7 @@ public class Question {
         map.put("question", this.question);
         map.put("positiveCount", this.positiveCount);
         map.put("negativeCount", this.negativeCount);
+        map.put("user", this.user);
         return map;
     }
 }

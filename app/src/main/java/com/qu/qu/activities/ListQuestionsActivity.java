@@ -66,8 +66,6 @@ public class ListQuestionsActivity extends ListActivity {
     View dialogView;
     EditText askingText;
     ImageButton micAskButton;
-    ArrayList<Question> askedQuestions = new ArrayList<>();
-    QuestionAdapter questionAdapter;
 
     QuestionManager questionManager;
     DatabaseReference userQuestions;
@@ -84,7 +82,6 @@ public class ListQuestionsActivity extends ListActivity {
         registerForContextMenu(getListView());
         mAuth = FirebaseAuth.getInstance();
         questionManager = ((BaseApplication)getApplication()).getQuestionManager();
-//        questionAdapter = new QuestionAdapter(this, askedQuestions);
     }
 
     @Override
@@ -107,19 +104,11 @@ public class ListQuestionsActivity extends ListActivity {
         }
     }
 
-    @Override
-    protected void onListItemClick(ListView l, View v, int position, long id) {
-        super.onListItemClick(l, v, position, id);
-        Question askedQuestion = askedQuestions.get(position);
-    }
-
     void removeQuestion(int position) {
         try {
-            Question selectedQuestion = askedQuestions.get(position);
-            Timber.d("Removing Question: %s Position: %s", selectedQuestion.getQuestion()
-                    , String.valueOf(position));
-            askedQuestions.remove(position);
-            questionAdapter.notifyDataSetChanged();
+            DatabaseReference selectedQuestion = firebaseQuestionAdapter.getRef(position);
+            questionManager.removeQuestion(selectedQuestion);
+            Timber.d("Removing Question Position: %s", String.valueOf(position));
         } catch (IndexOutOfBoundsException e) {
             Timber.e("Could not remove question at index %s", String.valueOf(position));
         }
@@ -133,7 +122,6 @@ public class ListQuestionsActivity extends ListActivity {
             mAuth.signInAnonymously().addOnCompleteListener(this, anonymousSignInListener);
         }
         userQuestions = questionManager.getUserQuestionDatabase(mUser.getUid());
-//        userQuestions.addChildEventListener(questionEventListener);
         firebaseQuestionAdapter = new FirebaseListAdapter<Question>(this, Question.class, R.layout.item_asked_question, userQuestions){
             @Override
             protected void populateView(View v, Question model, int position) {
@@ -149,7 +137,6 @@ public class ListQuestionsActivity extends ListActivity {
     protected void onStop() {
         super.onStop();
         firebaseQuestionAdapter.cleanup();
-//        userQuestions.removeEventListener(questionEventListener);
     }
 
     OnCompleteListener<AuthResult> anonymousSignInListener = new OnCompleteListener<AuthResult>() {
@@ -190,7 +177,8 @@ public class ListQuestionsActivity extends ListActivity {
                         if ((questionText != null) && questionText.length() > 0) {
                             questionText = prepareQuestion(askingText.getText().toString());
                             Question question = new Question(questionText);
-                            questionManager.createQuestion(question, mUser.getUid());
+                            question.setUser(mUser.getUid());
+                            questionManager.createQuestion(question);
                             materialDialog.dismiss();
                         }
                     }
@@ -223,35 +211,6 @@ public class ListQuestionsActivity extends ListActivity {
         questionText.trim();
         return questionText;
     }
-
-    ChildEventListener questionEventListener = new ChildEventListener() {
-        @Override
-        public void onChildAdded(DataSnapshot dataSnapshot, String s) {
-            Question q = dataSnapshot.getValue(Question.class);
-            askedQuestions.add(q);
-            questionAdapter.notifyDataSetChanged();
-        }
-
-        @Override
-        public void onChildChanged(DataSnapshot dataSnapshot, String s) {
-
-        }
-
-        @Override
-        public void onChildRemoved(DataSnapshot dataSnapshot) {
-
-        }
-
-        @Override
-        public void onChildMoved(DataSnapshot dataSnapshot, String s) {
-
-        }
-
-        @Override
-        public void onCancelled(DatabaseError databaseError) {
-
-        }
-    };
 
     class QuestionAdapter extends BaseAdapter {
 
