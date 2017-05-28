@@ -36,14 +36,6 @@ public class QuestionActivity extends Activity implements QuestionFragment.OnLoa
         setContentView(R.layout.activity_question);
         ButterKnife.inject(this);
         mAuth = FirebaseAuth.getInstance();
-        currentQuestion = (QuestionFragment) getFragmentManager().findFragmentByTag(CURRENT_QUESTION_TAG);
-        if (currentQuestion == null) {
-            currentQuestion = QuestionFragment.newInstance(styleIndex);
-            getFragmentManager()
-                    .beginTransaction()
-                    .add(R.id.fragment_container, currentQuestion, CURRENT_QUESTION_TAG)
-                    .commit();
-        }
         styleIndex += 1;
     }
 
@@ -78,6 +70,7 @@ public class QuestionActivity extends Activity implements QuestionFragment.OnLoa
                 // Sign in success, update UI with the signed-in user's information
                 Timber.d("signInAnonymously:success");
                 mUser = mAuth.getCurrentUser();
+                loadFirstQuestion(); // Load first question after successful authentication
             } else {
                 // If sign in fails, display a message to the user.
                 Timber.w("signInAnonymously:failure", task.getException());
@@ -86,4 +79,15 @@ public class QuestionActivity extends Activity implements QuestionFragment.OnLoa
             }
         }
     };
+
+    private void loadFirstQuestion(){
+        currentQuestion = (QuestionFragment) getFragmentManager().findFragmentByTag(CURRENT_QUESTION_TAG);
+        if (currentQuestion == null) {
+            currentQuestion = QuestionFragment.newInstance(styleIndex);
+            getFragmentManager()
+                    .beginTransaction()
+                    .add(R.id.fragment_container, currentQuestion, CURRENT_QUESTION_TAG)
+                    .commit();
+        }
+    }
 }
