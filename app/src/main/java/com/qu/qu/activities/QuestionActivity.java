@@ -45,6 +45,8 @@ public class QuestionActivity extends Activity implements QuestionFragment.OnLoa
         mUser = mAuth.getCurrentUser();
         if(mUser == null){
             mAuth.signInAnonymously().addOnCompleteListener(this, anonymousSignInListener);
+        }else{
+            loadFirstQuestion();
         }
     }
 
