@@ -4,7 +4,7 @@
     xmlns:wheel="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="com.qu.qu.fragments.QuestionFragment">
+    tools:context="com.quapp.qu.fragments.QuestionFragment">
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -96,16 +96,6 @@
                 android:textSize="20sp" />
         </LinearLayout>
     </RelativeLayout>
-
-    <tr.xip.errorview.ErrorView
-        android:id="@+id/error_view"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:layout_centerInParent="true"
-        android:visibility="gone"
-        ev:ev_errorSubtitleColor="@android:color/white"
-        ev:ev_errorTitleColor="@android:color/white"
-        ev:ev_retryButtonTextColor="@android:color/white" />
 
     <com.getbase.floatingactionbutton.AddFloatingActionButton
         android:id="@+id/create_question"

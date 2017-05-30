@@ -1,11 +1,18 @@
 apply plugin: 'com.android.application'
 
 android {
+    signingConfigs {
+        release {
+            keyAlias 'prod'
+            keyPassword 'Tommorow@91739Production'
+            storeFile file('C:/Users/Taylor/production.jks')
+            storePassword 'Tommorow@91739Keystore'
+        }
+    }
     compileSdkVersion 25
     buildToolsVersion "25.0.3"
-
     defaultConfig {
-        applicationId "com.qu.qu"
+        applicationId "com.quapp.qu"
         minSdkVersion 21
         targetSdkVersion 25
         versionCode 3
@@ -15,6 +22,7 @@ android {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
         }
     }
     packagingOptions {
@@ -29,20 +37,14 @@ dependencies {
     compile 'com.android.support:appcompat-v7:25.3.1'
     compile 'com.getbase:floatingactionbutton:1.8.0'
     compile 'com.jakewharton:butterknife:6.1.0'
-    compile 'com.squareup.retrofit:retrofit:1.9.0'
-    compile 'io.reactivex:rxandroid:0.22.0'
-    compile 'io.reactivex:rxandroid-framework:0.24.0'
     compile 'com.jakewharton.timber:timber:2.7.1'
     compile 'me.drakeet.materialdialog:library:1.2.2'
     compile 'com.pnikosis:materialish-progress:1.4'
     compile files('libs/nineoldandroids-2.4.0.jar')
-    compile project(':Errorview')
-    compile files('libs/realm-0.80.0.jar')
     compile 'com.google.firebase:firebase-core:10.2.6'
     compile 'com.google.firebase:firebase-auth:10.2.6'
     compile 'com.google.firebase:firebase-database:10.2.6'
     compile 'com.firebaseui:firebase-ui-database:1.1.0'
-
 }
 
 apply plugin: 'com.google.gms.google-services'
